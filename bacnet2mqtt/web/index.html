@@ -6,7 +6,42 @@
   <meta name="color-scheme" content="dark">
   <meta name="theme-color" content="#071019">
   <title>BACnet2MQTT</title>
-  <link rel="stylesheet" href="./styles.css?v=0.4.0">
+  <link rel="stylesheet" href="./styles.css?v=0.4.3">
+  <style>
+    @keyframes point-save-dirty-pulse {
+      0%, 100% {
+        background: #f59e0b;
+        border-color: #f59e0b;
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.12);
+      }
+      50% {
+        background: #fbbf24;
+        border-color: #fbbf24;
+        box-shadow: 0 0 0 7px rgba(251, 191, 36, 0.24);
+      }
+    }
+
+    .point-card.point-edit-dirty .save-config {
+      animation: point-save-dirty-pulse 1.15s ease-in-out infinite;
+      color: #111827;
+      font-weight: 800;
+      opacity: 1;
+    }
+
+    .point-card.point-edit-saving .save-config {
+      cursor: wait;
+      opacity: 1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .point-card.point-edit-dirty .save-config {
+        animation: none;
+        background: #fbbf24;
+        border-color: #fbbf24;
+        color: #111827;
+      }
+    }
+  </style>
 </head>
 <body>
 <div id="app" class="app-shell">
@@ -17,7 +52,7 @@
       </div>
       <div class="brand-copy">
         <div class="brand-title">BACnet2MQTT</div>
-        <div id="webUiVersion" class="brand-subtitle">BACnet workspace · Web UI v0.4.0</div>
+        <div id="webUiVersion" class="brand-subtitle">BACnet workspace · Web UI v0.4.3</div>
       </div>
     </div>
 
@@ -240,6 +275,165 @@
 
   <div id="toastHost" class="toast-host" aria-live="polite"></div>
 </div>
-<script src="./app.js?v=0.4.0" defer></script>
+<script src="./app.js?v=0.4.3" defer></script>
+<script>
+(() => {
+  const list = document.getElementById("pointsList");
+  if (!list) return;
+
+  function showToast(message, kind = "success") {
+    const host = document.getElementById("toastHost");
+    if (!host) return;
+    const node = document.createElement("div");
+    node.className = `toast ${kind}`;
+    node.textContent = message;
+    host.appendChild(node);
+    setTimeout(() => node.remove(), 3600);
+  }
+
+  function pointAddress(card) {
+    const key = String(card?.dataset?.pointKey || "");
+    const match = key.match(/^(\d+)\/(\d+)\/(\d+)$/);
+    if (match) {
+      return {
+        deviceId: Number(match[1]),
+        type: Number(match[2]),
+        instance: Number(match[3])
+      };
+    }
+
+    const deviceText = document.getElementById("selectedDeviceId")?.textContent || "";
+    const deviceMatch = deviceText.match(/(\d+)/);
+    const type = Number(card?.dataset?.type);
+    const instance = Number(card?.dataset?.instance);
+    if (!deviceMatch || !Number.isFinite(type) || !Number.isFinite(instance)) return null;
+    return { deviceId: Number(deviceMatch[1]), type, instance };
+  }
+
+  function numberOrNull(input) {
+    if (!input) return null;
+    const raw = String(input.value ?? "").trim();
+    if (!raw) return null;
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : null;
+  }
+
+  function configBody(card) {
+    const name = card.querySelector(".cfg-name");
+    const body = { name: String(name?.value || "").trim() };
+
+    if (card.querySelector(".cfg-min")) {
+      body.min = numberOrNull(card.querySelector(".cfg-min"));
+      body.max = numberOrNull(card.querySelector(".cfg-max"));
+      body.step = numberOrNull(card.querySelector(".cfg-step"));
+    }
+
+    if (card.querySelector(".cfg-schedule-mode")) {
+      body.schedule = {
+        mode: card.querySelector(".cfg-schedule-mode")?.value,
+        valueType: card.querySelector(".cfg-schedule-value-type")?.value,
+        onText: String(card.querySelector(".cfg-schedule-on-text")?.value || "").trim(),
+        onValue: String(card.querySelector(".cfg-schedule-on-value")?.value || "").trim(),
+        offText: String(card.querySelector(".cfg-schedule-off-text")?.value || "").trim(),
+        offValue: String(card.querySelector(".cfg-schedule-off-value")?.value || "").trim(),
+        nullText: String(card.querySelector(".cfg-schedule-null-text")?.value || "").trim(),
+        unit: String(card.querySelector(".cfg-schedule-unit")?.value || "").trim(),
+        min: numberOrNull(card.querySelector(".cfg-schedule-min")),
+        max: numberOrNull(card.querySelector(".cfg-schedule-max")),
+        step: numberOrNull(card.querySelector(".cfg-schedule-step")),
+        states: String(card.querySelector(".cfg-schedule-states")?.value || "")
+      };
+    }
+
+    return body;
+  }
+
+  function setDirty(card, dirty) {
+    card.classList.toggle("point-edit-dirty", dirty);
+    card.dataset.pointEditDirty = dirty ? "1" : "0";
+  }
+
+  async function saveCard(card, { closeAfter = false } = {}) {
+    if (!card || card.dataset.pointEditSaving === "1") return false;
+    const address = pointAddress(card);
+    const button = card.querySelector(".save-config");
+    if (!address || !button) return false;
+
+    card.dataset.pointEditSaving = "1";
+    card.classList.add("point-edit-saving");
+    button.disabled = true;
+    const originalText = button.textContent;
+    button.textContent = "Saving…";
+
+    try {
+      const response = await fetch(
+        `./api/devices/${address.deviceId}/points/${address.type}/${address.instance}`,
+        {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(configBody(card))
+        }
+      );
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+
+      setDirty(card, false);
+      const visibleName = card.querySelector(".point-name");
+      const editedName = card.querySelector(".cfg-name")?.value?.trim();
+      if (visibleName && editedName) visibleName.textContent = editedName;
+      showToast(`${editedName || "Data point"}: configuration saved`);
+
+      if (closeAfter) card.classList.remove("open");
+      return true;
+    } catch (err) {
+      setDirty(card, true);
+      showToast(err?.message || "Configuration save failed", "error");
+      return false;
+    } finally {
+      button.disabled = false;
+      button.textContent = originalText || "Save";
+      card.dataset.pointEditSaving = "0";
+      card.classList.remove("point-edit-saving");
+    }
+  }
+
+  function markFromField(target) {
+    if (!(target instanceof Element)) return;
+    if (!target.closest(".point-settings")) return;
+    if (!target.matches("input, select, textarea")) return;
+    const card = target.closest(".point-card");
+    if (card) setDirty(card, true);
+  }
+
+  list.addEventListener("input", event => markFromField(event.target), true);
+  list.addEventListener("change", event => markFromField(event.target), true);
+
+  list.addEventListener("click", event => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) return;
+    const card = target.closest(".point-card");
+    if (!card) return;
+
+    const saveButton = target.closest(".save-config");
+    if (saveButton) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void saveCard(card);
+      return;
+    }
+
+    const toggle = target.closest(".settings-toggle");
+    if (
+      toggle &&
+      card.classList.contains("open") &&
+      card.dataset.pointEditDirty === "1"
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void saveCard(card, { closeAfter: true });
+    }
+  }, true);
+})();
+</script>
 </body>
 </html>
