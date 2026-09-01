@@ -1,6 +1,6 @@
 # BACnet2MQTT
 
-##THIS IS A BETA
+THIS IS A BETA KEEP THAT IN MIND!!!
 
 Home Assistant App repository for **BACnet2MQTT v0.4.3**.
 
