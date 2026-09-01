@@ -1,0 +1,62 @@
+name: "BACnet2MQTT"
+version: "0.3.3"
+slug: "bacnet2mqtt"
+description: "BACnet/IP to MQTT gateway with Home Assistant MQTT Discovery and Ingress device manager"
+url: "https://github.com/Szlovakricsi/BACnet2Mqtt"
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+host_network: true
+homeassistant_api: true
+hassio_api: true
+hassio_role: homeassistant
+ingress: true
+ingress_port: 8099
+watchdog: "tcp://[HOST]:8099"
+panel_icon: "mdi:lan-connect"
+panel_title: "BACnet2MQTT"
+panel_admin: true
+map:
+  - homeassistant_config:rw
+stage: experimental
+options:
+  mqtt_host: ""
+  mqtt_port: 1883
+  mqtt_username: ""
+  mqtt_password: ""
+  bacnet_interface: ""
+  bacnet_broadcast: ""
+  bacnet_port: 47808
+  apdu_timeout: 6000
+  write_priority: 16
+  scan_timeout: 5
+  health_interval: 10
+  poll_interval: 60
+  read_concurrency: 8
+  cov_enabled: true
+  cov_lifetime: 300
+  cov_renew_percent: 80
+  cov_subscribe_delay_ms: 30
+  log_level: "info"
+schema:
+  mqtt_host: str
+  mqtt_port: port
+  mqtt_username: str
+  mqtt_password: password
+  bacnet_interface: str
+  bacnet_broadcast: str
+  bacnet_port: port
+  apdu_timeout: "int(1000,60000)"
+  write_priority: "int(1,16)"
+  scan_timeout: "int(2,60)"
+  health_interval: "int(5,3600)"
+  poll_interval: "int(10,86400)"
+  read_concurrency: "int(1,32)"
+  cov_enabled: bool
+  cov_lifetime: "int(30,86400)"
+  cov_renew_percent: "int(50,90)"
+  cov_subscribe_delay_ms: "int(0,5000)"
+  log_level: "list(error|warn|info|debug)"

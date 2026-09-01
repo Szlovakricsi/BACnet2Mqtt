@@ -1,0 +1,35 @@
+name: Validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Check JavaScript syntax
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            echo "Checking $file"
+            node --check "$file"
+          done < <(find bacnet2mqtt/src bacnet2mqtt/frontend bacnet2mqtt/web -type f -name '*.js' -print0)
+
+      - name: Check required files
+        shell: bash
+        run: |
+          test -f repository.yaml
+          test -f bacnet2mqtt/config.yaml
+          test -f bacnet2mqtt/Dockerfile
+          test -f bacnet2mqtt/run.sh
+          test -f bacnet2mqtt/package.json
