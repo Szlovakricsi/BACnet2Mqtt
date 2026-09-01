@@ -1,30 +1,64 @@
 # BACnet2MQTT
 
-BACnet/IP → MQTT gateway for Home Assistant. v0.3.3
+BACnet2MQTT v0.4.3 is a bidirectional BACnet/IP and Home Assistant gateway.
 
-This is the first experimental local Home Assistant App build based on the tested Node-RED gateway logic. It discovers BACnet devices and supported points, publishes Home Assistant MQTT Discovery entities, performs reads and writes, manages BACnet write priority and Priority Release, tracks availability, and attempts COV subscriptions.
+It discovers BACnet devices and supported points, publishes Home Assistant MQTT Discovery entities, performs reads and writes, manages BACnet write priority and Priority Release, tracks availability, supports BACnet Schedules, and can expose selected Home Assistant entities back to BACnet through a virtual BACnet Device.
 
-See `DOCS.md` for installation and first-test instructions.
+See `DOCS.md` for configuration, Web UI and troubleshooting details.
 
+## MQTT Discovery driver device
+
+Gateway controls and diagnostics are grouped under the Home Assistant MQTT Discovery device:
+
+```text
+BACnet Driver
+```
+
+The MQTT topic namespace remains `bacnet2mqtt/driver/...` for compatibility.
+
+## Ingress device and datapoint manager
+
+Open **BACnet2MQTT** from the Home Assistant sidebar.
+
+The Ingress UI lets you:
+
+- discover and inspect BACnet devices
+- see live values and online/offline state
+- control writable BACnet points
+- rename devices and datapoints for Home Assistant presentation
+- override analog min/max/step values
+- configure BACnet Schedule display/write profiles
+- edit Weekly_Schedule directly
+- expose Home Assistant entities back to BACnet from the **HA → BACnet** workspace
+
+Datapoint settings now track unsaved edits. As soon as a field is changed, the **Save** button pulses orange/yellow until the configuration is saved. Closing the datapoint settings panel automatically saves pending changes first. If the save fails, the panel stays open and the unsaved indication remains visible.
+
+Device and point overrides are stored persistently and are applied to Home Assistant MQTT Discovery. Deleting a device from this UI only removes it from BACnet2MQTT; it never deletes the physical BACnet controller.
+
+## Home Assistant → BACnet
+
+Selected Home Assistant entities can be exported as a virtual BACnet/IP device. Supported export object types currently include:
+
+- Analog Value
+- Binary Value
+- CharacterString Value
+
+Writable Home Assistant domains can also be controlled from BACnet through supported Home Assistant service calls.
+
+The virtual device shares the gateway's BACnet/IP socket instead of opening a second UDP/47808 listener.
+
+## BACnet discovery networking
+
+The BACnet client listens on:
+
+```text
+0.0.0.0:<bacnet_port>
+```
+
+This allows subnet broadcast Who-Is packets from other machines (for example YABE) to reach the App. The configured `bacnet_broadcast` address is still used for outgoing BACnet broadcast traffic.
 
 ## Bundled Schedule Card
 
-BACnet Schedule Card is installed automatically by the App. No manual
-`/config/www` copy or Dashboard Resource entry is required.
+BACnet Schedule Card is installed automatically by the App. No manual `/config/www` copy or Dashboard Resource entry is required.
 
-After the App is updated, Home Assistant will show a persistent notification
-asking for a restart/hard refresh when the frontend card version changed.
-\n\n## Ingress Device Manager\n\nOpen **BACnet2MQTT** from the Home Assistant sidebar. The v0.3.0 Ingress UI lets\nyou select devices, see online/offline state, inspect live point values, control\nwritable points, rename devices/points and override analog min/max/step values.\n\nDevice and point overrides are stored persistently and are applied to Home\nAssistant MQTT Discovery. Deleting a device from this UI only removes it from\nBACnet2MQTT; it never deletes the physical BACnet controller.\n
-
-## Modern Ingress device manager
-
-v0.3.1 refreshes the built-in device/point manager and adds an interactive
-`Home Assistant reboot required` flow after updates. Use `Submit` in the dialog
-to restart Home Assistant Core; `Later` keeps a reminder badge in the header.
-
-
-## v0.3.3 Schedule workspace
-
-Schedule objects can now be edited directly in the Ingress UI. Each Schedule has its own display/write profile (binary, named states, or numeric), BACnet application value type, labels/raw values, unit, range and step. The bundled Lovelace Schedule Card reads the same profile automatically.
-
-When the bundled frontend resource changes, BACnet2MQTT exposes a native Home Assistant MQTT Update entity called **Home Assistant Reboot Required** on the Driver device. Use the normal Home Assistant Update dialog and press **Update** to restart Home Assistant Core.
+The bundled Schedule Card version remains v0.3.3 in this App release.
