@@ -164,7 +164,7 @@ async function restartHomeAssistant() {
           },
           null,
           2
-        ) + "\\n",
+        ) + "\n",
         "utf8"
       );
     }
@@ -184,6 +184,17 @@ function requireGateway(getGateway) {
   return gateway;
 }
 
+function requireHaBacnet(getHaBacnet) {
+  const bridge = getHaBacnet?.();
+  if (!bridge) {
+    throw Object.assign(
+      new Error("Home Assistant BACnet bridge is still starting"),
+      { statusCode: 503 }
+    );
+  }
+  return bridge;
+}
+
 function parsePointPath(pathname) {
   const match = pathname.match(
     /^\/api\/devices\/(\d+)\/points\/(\d+)\/(\d+)(?:\/(value|reset))?$/
@@ -197,11 +208,12 @@ function parsePointPath(pathname) {
   };
 }
 
-async function handleApi(req, res, url, getGateway, options) {
+async function handleApi(req, res, url, getGateway, getHaBacnet, options) {
   const pathname = url.pathname;
 
   if (req.method === "GET" && pathname === "/api/status") {
     const gateway = getGateway();
+    const bridge = getHaBacnet?.();
     const restart =
       await restartRequiredState();
 
@@ -213,6 +225,8 @@ async function handleApi(req, res, url, getGateway, options) {
       pollRunning: gateway?.pollRunning === true,
       mqttHostConfigured: Boolean(String(options.mqtt_host || "").trim()),
       bacnetInterfaceConfigured: Boolean(String(options.bacnet_interface || "").trim()),
+      haBacnetReady: Boolean(bridge),
+      haBacnetEnabled: bridge?.config?.enabled === true,
       homeAssistantRestartRequired:
         restart.required,
       homeAssistantRestartReason:
@@ -232,6 +246,38 @@ async function handleApi(req, res, url, getGateway, options) {
       ok: true,
       restarting: true
     });
+  }
+
+  if (pathname === "/api/ha-bacnet") {
+    const bridge = requireHaBacnet(getHaBacnet);
+
+    if (req.method === "GET") {
+      return json(res, 200, bridge.uiState());
+    }
+
+    if (req.method === "PUT") {
+      const body = await readJsonBody(req);
+      return json(res, 200, await bridge.updateConfig(body));
+    }
+  }
+
+  if (req.method === "GET" && pathname === "/api/ha/entities") {
+    const bridge = requireHaBacnet(getHaBacnet);
+    return json(res, 200, {
+      entities: await bridge.listEntities()
+    });
+  }
+
+  if (req.method === "POST" && pathname === "/api/ha-bacnet/mappings") {
+    const bridge = requireHaBacnet(getHaBacnet);
+    const body = await readJsonBody(req);
+    return json(res, 201, await bridge.addMapping(body));
+  }
+
+  const haMapping = pathname.match(/^\/api\/ha-bacnet\/mappings\/(.+)$/);
+  if (req.method === "DELETE" && haMapping) {
+    const bridge = requireHaBacnet(getHaBacnet);
+    return json(res, 200, await bridge.removeMapping(haMapping[1]));
   }
 
   const gateway = requireGateway(getGateway);
@@ -355,7 +401,9 @@ async function serveStatic(res, pathname) {
     "/index.html": "index.html",
     "/app.js": "app.js",
     "/styles.css": "styles.css",
-    "/icon.png": "icon.png"
+    "/icon.png": "icon.png",
+    "/export.html": "export.html",
+    "/export.js": "export.js"
   };
 
   const filename = routes[pathname];
@@ -368,7 +416,7 @@ async function serveStatic(res, pathname) {
   res.writeHead(200, {
     "content-type": MIME[ext] || "application/octet-stream",
     "content-length": data.length,
-    "cache-control": ["index.html", "app.js", "styles.css"].includes(filename)
+    "cache-control": ["index.html", "app.js", "styles.css", "export.html", "export.js"].includes(filename)
       ? "no-store"
       : "public, max-age=3600"
   });
@@ -376,7 +424,7 @@ async function serveStatic(res, pathname) {
   return true;
 }
 
-export function startWebServer({ getGateway, options }) {
+export function startWebServer({ getGateway, getHaBacnet, options }) {
   const server = http.createServer(async (req, res) => {
     try {
       if (!isAllowedIngressClient(req)) {
@@ -387,7 +435,7 @@ export function startWebServer({ getGateway, options }) {
       const url = new URL(req.url || "/", `http://${host}`);
 
       if (url.pathname.startsWith("/api/")) {
-        return await handleApi(req, res, url, getGateway, options);
+        return await handleApi(req, res, url, getGateway, getHaBacnet, options);
       }
 
       if (await serveStatic(res, url.pathname)) return;
