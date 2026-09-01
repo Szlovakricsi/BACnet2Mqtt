@@ -32,7 +32,7 @@ function deviceDescriptor(device) {
 function driverDescriptor() {
   return {
     identifiers: ["bacnet2mqtt_driver"],
-    name: "Driver",
+    name: "BACnet Driver",
     manufacturer: "BACnet2MQTT",
     model: "Home Assistant App",
     sw_version: VERSION
@@ -728,7 +728,7 @@ export async function publishDiscovery(client, cache, logger) {
   currentTopics.add(discoveryTopic("button", "bacnet2mqtt_driver_read"));
 
   const driverStatus = {
-    name: "Driver Status",
+    name: "BACnet Driver Status",
     unique_id: "bacnet2mqtt_driver_status",
     state_topic: `${BASE_TOPIC}/driver/status`,
     entity_category: "diagnostic",
