@@ -30,6 +30,18 @@ async function readOptions() {
 
 const options = await readOptions();
 
+// @bacnet-js/client binds its UDP socket directly to the configured
+// `interface` address. Binding to a specific host address prevents Linux from
+// delivering subnet/limited-broadcast Who-Is datagrams to that socket. Keep
+// the user's configured BACnet interface for routing/configuration purposes,
+// but listen on all local IPv4 addresses so BACnet discovery works from other
+// machines. Outgoing unicast and directed-broadcast traffic is still routed by
+// the OS using the configured destination/broadcast subnet.
+const gatewayOptions = {
+  ...options,
+  bacnet_interface: "0.0.0.0"
+};
+
 let gateway = null;
 let haBacnet = null;
 let startingGateway = false;
@@ -136,7 +148,14 @@ mqtt.on("connect", async () => {
   try {
     if (!gateway && !startingGateway) {
       startingGateway = true;
-      gateway = new Gateway(options, mqtt);
+
+      console.log(
+        `[BACNET] UDP listener bind=0.0.0.0:${options.bacnet_port}; ` +
+        `configured interface=${options.bacnet_interface}; ` +
+        `broadcast=${options.bacnet_broadcast}`
+      );
+
+      gateway = new Gateway(gatewayOptions, mqtt);
       await gateway.start();
 
       // Reuse the Gateway's already-bound BACnet/IP client/socket for the
