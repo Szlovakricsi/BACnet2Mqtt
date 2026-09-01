@@ -147,6 +147,39 @@ mqtt.on("connect", async () => {
         gateway.bacnet,
         gateway.log
       );
+
+      // A Linux UDP socket may receive its own BACnet broadcast. Do not answer
+      // the driver's own Who-Is, otherwise a later manual scan could discover
+      // the virtual Home Assistant device as one of its physical controllers.
+      const answerExternalWhoIs = haBacnet.handleWhoIs.bind(haBacnet);
+      haBacnet.handleWhoIs = async req => {
+        const sender = req?.header?.sender;
+        const senderAddress = String(sender?.address || "");
+        const senderPort = Number(sender?.port ?? sender?.udpPort ?? options.bacnet_port);
+        if (
+          senderAddress === String(options.bacnet_interface) &&
+          senderPort === Number(options.bacnet_port)
+        ) {
+          return;
+        }
+
+        const deviceId = Number(haBacnet.config?.deviceId);
+        const low = Number(
+          req?.payload?.lowLimit ??
+          req?.payload?.lowLimitDeviceInstance ??
+          NaN
+        );
+        const high = Number(
+          req?.payload?.highLimit ??
+          req?.payload?.highLimitDeviceInstance ??
+          NaN
+        );
+        if (Number.isFinite(low) && deviceId < low) return;
+        if (Number.isFinite(high) && deviceId > high) return;
+
+        return answerExternalWhoIs(req);
+      };
+
       await haBacnet.start();
 
       startingGateway = false;
