@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import { connect as mqttConnect } from "mqtt";
 import { BASE_TOPIC } from "./constants.js";
 import { Gateway } from "./gateway.js";
+import { HomeAssistantBacnetBridge } from "./ha-bacnet.js";
 import { installFrontendCardWithRetry } from "./frontend.js";
 import { startWebServer } from "./web.js";
 
@@ -30,11 +31,13 @@ async function readOptions() {
 const options = await readOptions();
 
 let gateway = null;
+let haBacnet = null;
 let startingGateway = false;
 let shuttingDown = false;
 
 const webServer = startWebServer({
   getGateway: () => gateway,
+  getHaBacnet: () => haBacnet,
   options
 });
 
@@ -135,9 +138,23 @@ mqtt.on("connect", async () => {
       startingGateway = true;
       gateway = new Gateway(options, mqtt);
       await gateway.start();
-startingGateway = false;
+
+      // Reuse the Gateway's already-bound BACnet/IP client/socket for the
+      // reverse Home Assistant -> BACnet virtual device. This avoids a second
+      // UDP/47808 listener and keeps both directions in one driver instance.
+      haBacnet = new HomeAssistantBacnetBridge(
+        options,
+        gateway.bacnet,
+        gateway.log
+      );
+      await haBacnet.start();
+
+      startingGateway = false;
     } else if (gateway) {
       await gateway.republishDiscovery();
+      if (haBacnet) {
+        await haBacnet.refreshStates().catch(() => {});
+      }
     }
   } catch (err) {
     startingGateway = false;
@@ -160,7 +177,12 @@ async function shutdown(signal) {
   shuttingDown = true;
 
   console.log(`Received ${signal}, shutting down...`);
-try {
+
+  try {
+    if (haBacnet) await haBacnet.stop();
+  } catch {}
+
+  try {
     if (gateway) await gateway.stop();
   } catch {}
 
