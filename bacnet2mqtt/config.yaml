@@ -1,5 +1,5 @@
 name: "BACnet2MQTT"
-version: "0.4.2"
+version: "0.4.3"
 slug: "bacnet2mqtt"
 description: "Bidirectional BACnet/IP and Home Assistant gateway with MQTT Discovery, HA-to-BACnet entity export and Ingress device manager"
 url: "https://github.com/Szlovakricsi/BACnet2Mqtt"
