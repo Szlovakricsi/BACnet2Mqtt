@@ -1,4 +1,4 @@
-export const VERSION = "0.3.3";
+export const VERSION = "0.4.0";
 export const BASE_TOPIC = "bacnet2mqtt";
 export const DISCOVERY_PREFIX = "homeassistant";
 
