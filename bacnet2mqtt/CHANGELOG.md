@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.4.3
+
+- Standardized the Home Assistant MQTT Discovery gateway device name as **BACnet Driver**. The stable MQTT topic namespace remains `bacnet2mqtt/driver/...`.
+- Added unsaved-change tracking to datapoint settings in the Ingress Web UI.
+- The datapoint **Save** button now pulses orange/yellow whenever any settings field has been changed but not yet saved.
+- Pressing **Save** clears the dirty indication only after the point configuration request succeeds.
+- Closing an open datapoint settings panel now automatically saves pending changes before closing.
+- If the automatic save fails, the panel remains open and the dirty/pulsing state remains visible so edits are not silently lost.
+- Updated the root README, App README and `DOCS.md` for the bidirectional BACnet/Home Assistant architecture and current Web UI behavior.
+
+## 0.4.2
+
+- Fixed BACnet/IP broadcast discovery from other machines such as YABE.
+- The BACnet UDP listener now binds to `0.0.0.0:<bacnet_port>` instead of only the configured host interface address, allowing subnet broadcast Who-Is datagrams to reach the socket on Linux.
+- The configured BACnet broadcast address remains in use for outgoing BACnet broadcasts.
+
+## 0.4.1
+
+- Removed the IP/port-based Who-Is suppression that could prevent valid BACnet discovery requests from being answered.
+- The virtual Home Assistant BACnet Device now answers valid Who-Is requests regardless of the requester's host address, while still honoring optional Device Instance ranges.
+- The gateway ignores the virtual Home Assistant Device's own I-Am in the physical-controller discovery path instead of suppressing Who-Is responses.
+- Added Who-Is response logging for the virtual Home Assistant BACnet Device.
+
+## 0.4.0
+
+- Added Home Assistant → BACnet entity export.
+- Added a virtual BACnet Device that shares the existing gateway BACnet/IP socket and exposes selected Home Assistant entities.
+- Added Analog Value, Binary Value and CharacterString Value export types.
+- Added ReadProperty, ReadPropertyMultiple, Who-Is/I-Am and supported WriteProperty handling for the virtual device.
+- Added supported BACnet writes back to Home Assistant service calls for common writable entity domains.
+- Added the **HA → BACnet** Ingress workspace and persistent `/data/ha-bacnet-export.json` configuration.
+
 ## 0.3.3
 
 - Rebuilt BACnet Schedule Card as v0.3.3 with a flat Home Assistant update-dialog inspired design.
@@ -19,7 +51,6 @@
 - Added a native MQTT Update entity named `Home Assistant Reboot Required` on the BACnet2MQTT Driver device. When a frontend restart is required it becomes an available update; opening it uses Home Assistant's native Update/Firmware dialog. Pressing **Update** sends the restart command and restarts Home Assistant Core.
 - The reboot-required update state is retained and re-published after Home Assistant reconnects.
 
-
 ## 0.3.2
 
 - Fixed the Ingress Web UI not visually changing after the v0.3.1 redesign.
@@ -29,7 +60,6 @@
 - Static Web UI assets continue to use `Cache-Control: no-store`.
 - Added a visible `Web UI v0.3.2` label under the BACnet2MQTT title.
 - Browser console now prints `[BACnet2MQTT Web UI] v0.3.2 loaded`.
-
 
 ## 0.3.1
 
@@ -43,7 +73,6 @@
 - The restart-required state is persisted under `/data` until the user submits the restart.
 - Added a Supervisor TCP watchdog for the Ingress service on port 8099.
 - Ingress HTML, JavaScript and CSS are now served with `no-store` to avoid stale UI assets after an App update.
-
 
 ## 0.3.0
 
@@ -64,19 +93,13 @@
 - UI settings survive App restarts and BACnet rediscovery.
 - Ingress access is restricted to the Home Assistant Ingress proxy (plus loopback for local health/testing).
 
-
 ## 0.2.8
 
 - Fixed `Present Value unavailable` on the bundled BACnet Schedule Card.
 - v0.2.7 published the Schedule attributes topic correctly, but accidentally added `json_attributes_topic` only to the Schedule sensor discovery config.
-- The Weekly Schedule MQTT Text entity now correctly includes:
-  `json_attributes_topic: bacnet2mqtt/<device>/17/<instance>/attributes`
+- The Weekly Schedule MQTT Text entity now correctly includes `json_attributes_topic: bacnet2mqtt/<device>/17/<instance>/attributes`.
 - Existing Text entities are updated in place by retained MQTT Discovery after the App restarts.
 - The Text entity now receives `present_value`, `object_type`, `object_instance`, `weekly_schedule`, `priority_for_writing`, and the remaining Schedule attributes.
-- The card can therefore show:
-  - Present Value `1` -> green dot
-  - Present Value `0` -> gray dot
-
 
 ## 0.2.7
 
@@ -85,206 +108,82 @@
 - `command_topic` is no longer required in normal card configuration.
 - Added the Schedule `json_attributes_topic` to the MQTT Text discovery entity.
 - The Weekly Schedule Text entity now automatically receives `present_value`, `object_instance`, `weekly_schedule`, `controlled_object`, and the other Schedule attributes.
-- The card reads `present_value` directly from the Text entity:
-  - `1` -> green status dot
-  - `0` -> gray status dot
 - `state_entity` is no longer required.
-- Card title is automatically derived from the Text entity friendly name when `title` is omitted.
-- Card picker suggestions now target BACnet2MQTT Schedule `text.*` entities.
-- Legacy `command_topic`, `schedule_entity`, and `state_entity` configurations remain supported as fallbacks.
-- Home Assistant MQTT Text has a hard 255-character maximum; the card reports a clear error if a very dense weekly program exceeds it.
-
+- Legacy configurations remain supported as fallbacks.
 
 ## 0.2.6
 
-- Bundles BACnet Schedule Card v0.2.3 directly with the BACnet2MQTT App.
-- The App automatically installs the card to `/homeassistant/www/bacnet-schedule-card.js`.
-- The App automatically lists Lovelace resources and creates or updates `/local/bacnet-schedule-card.js?v=0.2.3` as a JavaScript module.
-- Existing manually registered BACnet Schedule Card resources are upgraded automatically.
-- The custom card picker now uses `preview: true`, so the Community card tile renders the card itself instead of a generic text-only placeholder.
-- Added Home Assistant 2026.6+ entity suggestion support for BACnet Schedule sensors.
-- After an App/card version update, BACnet2MQTT creates a persistent Home Assistant notification asking for one Home Assistant restart and browser hard-refresh.
-- Added `homeassistant_config:rw` mapping and Home Assistant API access only for frontend card installation/registration and update notification.
-- The frontend installer runs even before BACnet/MQTT network addresses are configured.
-
+- Bundled the BACnet Schedule Card directly with the App.
+- Added automatic installation into Home Assistant `www` and automatic Lovelace resource registration/update.
+- Added update/restart notification support after frontend resource changes.
 
 ## 0.2.5
 
-- Fixed writable analog Home Assistant Number states still carrying raw BACnet REAL float32 noise.
-- Example: `0.0020000000949949026` is now published as `0.002`.
+- Fixed writable analog Home Assistant Number states carrying raw BACnet REAL float32 noise.
 - Writable AO/AV states are aligned to the published `min + N × step` grid before MQTT state publication.
-- This fixes browser validation messages even when `step` itself was already corrected in v0.2.3.
-- Number spinner up/down controls now advance using the expected BACnet resolution, e.g. `0.001`.
-- Read-only analog sensors are not quantized by this change.
-
 
 ## 0.2.4
 
-- Removed Home Assistant Ingress support completely.
-- Removed the internal Schedule web editor and `web.js`.
-- Removed `ingress`, `ingress_port`, and all sidebar panel settings from `config.yaml`.
-- BACnet Schedule discovery, MQTT entities, reading and writing remain available.
-- No BACnet, MQTT, COV, discovery, Priority Release, or Number behavior was otherwise changed.
-
+- Temporarily removed Home Assistant Ingress and the internal Schedule web editor while retaining BACnet/MQTT gateway and Schedule functionality.
 
 ## 0.2.3
 
 - Fixed Home Assistant Number validation errors caused by raw BACnet REAL/float32 precision.
-- BACnet resolutions such as `0.0010000000474974513` are normalized to `0.001` before MQTT Discovery is published.
-- BACnet analog min/max metadata is normalized with the same float32 cleanup.
-- Values such as `1`, `10` and `100` no longer produce browser messages about the nearest valid values.
-- This also prevents the validation helper text from expanding/overlapping the device-row layout and hiding the datapoint name.
-- Added `raw_resolution` to Number discovery logs for diagnostics.
-
+- Normalized analog min/max/resolution metadata before MQTT Discovery publication.
 
 ## 0.2.2
 
 - Replaced the Home Assistant App icon with the selected BACnet2MQTT artwork.
-- The new icon uses the full 128×128 icon area and keeps its transparent outer background.
-- `logo.png` remains intentionally absent, so the App name is shown as text instead of a large logo banner.
-- No functional BACnet/MQTT behavior changed in this release.
-
 
 ## 0.2.1
 
-- Removed `logo.png` so Home Assistant shows the App name as text instead of a large custom logo banner.
-- Replaced the previous logo artwork with a simpler text-based `icon.png`.
-- The App keeps its square icon, but the larger logo presentation is intentionally disabled.
-- Kept the empty default network address fields introduced in v0.2.0.
-
+- Simplified App branding and removed the large `logo.png` presentation.
 
 ## 0.2.0
 
-- Added BACnet2MQTT branding with `icon.png` and `logo.png`.
-- The new pastel BACnet2MQTT data-flow artwork is used as the Home Assistant App icon/logo.
-- Removed all pre-filled IP/host addresses from the default App configuration.
-- `mqtt_host`, `bacnet_interface`, and `bacnet_broadcast` now start empty on a new installation.
-- Added startup configuration validation with a clear log message when required network addresses have not been configured.
-- An unconfigured App stays running instead of repeatedly crashing/restarting, so the Configuration and Log tabs remain accessible.
-
+- Added BACnet2MQTT branding.
+- Removed pre-filled network addresses from default configuration.
+- Added startup validation for required MQTT/BACnet address fields.
 
 ## 0.1.9
 
-- Changed binary Schedule values from `ON/OFF` aliases to the canonical displayed format `ON/OFF`.
-- Schedule editing now uses `ON/OFF` or numeric `1/0`.
-- Removed non-English weekday aliases; Schedule input is English-only.
-- All weekday labels are English: Monday through Sunday.
-- Changed the remaining Home Assistant entity label to `BACnet Status`.
-- Changed the complete Ingress Schedule editor UI to English.
-- The `hu.yaml` App translation intentionally mirrors the English translation, so BACnet2MQTT remains English even when Home Assistant is configured for Hungarian.
-- Updated all shipped examples and documentation to English.
-
+- Standardized the user-facing UI and Schedule vocabulary to English.
 
 ## 0.1.8
 
-- Fixed BACnet Weekly_Schedule writes with @bacnet-js/client 3.3.2.
-- The library expects `BACNetWeeklySchedulePayload` directly as the `writeProperty()` values argument.
-- Removed the incorrect outer `{ type: WEEKLY_SCHEDULE, value: weekly }` wrapper which made the encoder see only one day and caused:
-  `Could not encode: weekly schedule should have exactly 7 days`.
-- Weekly payload is now normalized to exactly seven daily arrays before every write.
-- Added debug logging showing the encoded day count and number of events per day.
-- Changed all displayed Schedule weekday names to English: Monday through Sunday.
-- Common English weekday abbreviations are accepted by the parser.
-
+- Fixed BACnet Weekly_Schedule writes for `@bacnet-js/client` 3.3.2.
+- Normalized the Weekly_Schedule payload to exactly seven daily arrays.
 
 ## 0.1.7
 
-- Added Home Assistant Ingress Schedule editor.
-- Editing a Schedule starts a 1 second debounce; after typing stops the complete week is written automatically to BACnet.
-- Leaving the editor sends a pending edit immediately.
-- No Enter/checkmark/manual MQTT publish is needed in the Ingress editor.
-- The Schedule is read back after writing and the confirmed BACnet program replaces the editor value.
-- BACnet write errors are shown directly below the Schedule field.
-- Added BACnet2MQTT sidebar/Web UI entry.
-
+- Added the first Home Assistant Ingress Schedule editor with automatic write-on-edit behavior.
 
 ## 0.1.6
 
-- Replaced the seven separate Schedule weekday MQTT Text entities with one large editable weekly Schedule entity.
-- The full-week entity uses one Home Assistant `value_template` to format Monday through Sunday.
-- Display/edit format:
-  `Monday:08:00=ON;16:00=OFF | Tuesday:- | Wednesday:- | Thursday:- | Friday:- | Saturday:- | Sunday:-`
-- The weekly command updates all days present in the edited string while preserving any omitted days.
-- `-`, `EMPTY`, or an empty day section clears that day.
-- English weekday names and common English abbreviations are accepted.
-- Old v0.1.5 per-day Home Assistant Text entities are removed automatically through retained MQTT Discovery cleanup.
-- The old per-day MQTT command topics remain supported for compatibility.
-
+- Replaced seven separate Schedule weekday MQTT Text entities with one full-week entity.
 
 ## 0.1.5
 
-- Fixed BACnet Schedule TIME presentation: local controller times are no longer shown one hour early as UTC ISO timestamps.
-- BACnet wildcard Effective_Period dates (255/255/255) are now presented as unrestricted instead of 1899/1900 dates.
-- Added editable Home Assistant MQTT Text controls for all seven Schedule weekdays.
-- Schedule Text controls use Home Assistant `value_template` against one shared JSON schedule state topic.
-- Editable syntax is compact and human-readable, for example: `08:00=ON;16:00=OFF`.
-- Binary schedules accept `OFF/ON`, `OFF/ON`, or `0/1`.
-- Multi-State schedules accept state names or numeric state indices.
-- Analog schedules accept numeric values.
-- Empty text clears the selected weekday.
-- Only the selected weekday is changed; the app reads the latest Weekly_Schedule first and preserves the other six days.
-- Schedule writes use the schedule/calendar write support added to @bacnet-js/client 3.2+ and are read back after writing.
-
+- Fixed BACnet Schedule TIME presentation and wildcard Effective_Period handling.
+- Added editable Schedule weekday controls.
 
 ## 0.1.4
 
-- Added BACnet Schedule object support (Object Type 17).
-- Schedule objects are now discovered from the BACnet Device Object_List.
-- Schedule Present_Value appears in Home Assistant as a read-only sensor.
-- Home Assistant Schedule sensors expose MQTT attributes for:
-  - Schedule_Default
-  - Priority_For_Writing
-  - Effective_Period
-  - Weekly_Schedule
-  - Exception_Schedule
-  - List_Of_Object_Property_References
-- Schedule metadata is refreshed during normal/manual full reads.
-- Schedule objects intentionally use polling instead of COV subscription.
-
+- Added BACnet Schedule Object Type 17 discovery and read support.
 
 ## 0.1.3
 
-- Fixed writable Analog Value/Analog Output entities disappearing from Home Assistant.
-- Validates BACnet `Min_Pres_Value` / `Max_Pres_Value` before publishing MQTT Number discovery.
-- Controllers that report invalid/equal limits (for example 0/0) now get a safe dynamic fallback range around the current value.
-- Enforces Home Assistant MQTT Number minimum step of 0.001.
-- Logs the generated Home Assistant number range for every writable analog point.
-
+- Fixed writable Analog Value/Analog Output Home Assistant Number discovery when BACnet min/max metadata is invalid.
 
 ## 0.1.2
 
-- Object_List discovery now uses indexed reads (index 0 + 1..N) to avoid silently truncated object lists.
-- Discovery logs now show total Object_List size, supported/skipped objects and object-type counts.
-- BACnet reads/writes now pass the device max APDU value when known.
-- Write verification now reads the configured Priority_Array slot.
-- Write logs distinguish an accepted BACnet write from a Present_Value blocked by a higher priority.
-- Priority Release is verified against the Priority_Array slot.
-- Readback logs now include the actual value.
-
+- Changed Object_List discovery to indexed reads.
+- Added APDU-aware read/write behavior and priority-array verification.
 
 ## 0.1.1
 
-- Fixed `@bacnet-js/client` constructor resolution under Home Assistant Node.js runtime.
-- Added BACnet library constructor startup diagnostic.
-
+- Fixed `@bacnet-js/client` constructor resolution under the Home Assistant Node.js runtime.
 
 ## 0.1.0
 
-Initial experimental build.
-
-- BACnet/IP Who-Is / I-Am discovery
-- Object_List point discovery
-- AI, AO, AV, BI, BO, BV, MSI, MSO and MSV entities
-- writable/commandable detection using Relinquish_Default
-- Home Assistant MQTT Discovery
-- BACnet WriteProperty priority 1-16
-- Priority Release via BACnet NULL
-- write readback/retry
-- Driver device with Scan, Read and Driver Status
-- MQTT Birth / Last Will availability
-- per-device online/offline state
-- Driver + device double availability for all point entities
-- fallback polling and health checking
-- offline -> online device rediscovery
-- COV subscription and renewal
-- persistent cache under /data
+Initial experimental build with BACnet/IP discovery, MQTT Discovery, BACnet writes, priority release, availability, polling, COV and persistent cache support.
