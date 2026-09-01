@@ -1,5 +1,7 @@
 # BACnet2MQTT
 
+##THIS IS A BETA
+
 Home Assistant App repository for **BACnet2MQTT v0.4.3**.
 
 BACnet2MQTT is a bidirectional BACnet/IP and Home Assistant gateway. It discovers BACnet controllers and publishes their data points through MQTT Discovery, and it can also expose selected Home Assistant entities back to BACnet as a virtual BACnet device.
